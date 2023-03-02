@@ -27,7 +27,7 @@ WORKDIR /tmp
 
 RUN cp -r /tmp/build-libtorrent/libtorrent/install /tmp/libtorrent
 
-COPY libs/* /tmp
+COPY libs/* /tmp/
 
 RUN make so &&  \
     ln -s libGetTorrent.so.1.0.0 libGetTorrent.so.1 &&  \
@@ -49,7 +49,7 @@ RUN pip3 install flask gunicorn
 
 RUN cp /tmp/PyGetTorrent.so /app/PyGetTorrent.so
 
-COPY app/* /app
+COPY app/* /app/
 
 EXPOSE 8080
 
