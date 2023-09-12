@@ -8,6 +8,8 @@ WORKDIR /tmp
 
 RUN git clone https://github.com/python/cpython.git && \    
     cd cpython && \
+    git checkout 3.12 && \
+    git pull origin 3.12 && \
     ./configure && \ 
     make -j$(nproc) && \
     make test -j$(nproc) && \
