@@ -13,15 +13,17 @@ jobs:
       - name: build docker
         env:
           DOCKERUSR: ${{ secrets.DOCKERUSR }}
+          DOCKER_REGISTRY_HOST: ${{ secrets.DOCKER_REGISTRY_HOST }}
         run: |
           echo "Build Docker"
-          docker build -t ${DOCKERUSR}/magnet2torrent:latest .
-      - name: push to docker hub
+          docker build -t ${DOCKER_REGISTRY_HOST}/${DOCKERUSR}/magnet2torrent:latest .
+      - name: push to private registry hub
         env:
+          DOCKER_REGISTRY_HOST: ${{ secrets.DOCKER_REGISTRY_HOST }}
           DOCKERUSR: ${{ secrets.DOCKERUSR }}
           DOCKERPASS: ${{ secrets.DOCKERPASS }}
         run: |
-          echo "Docker Hub login"
-          docker login --username ${DOCKERUSR} --password ${DOCKERPASS}
+          echo "Private registry login"
+          docker login ${DOCKER_REGISTRY_HOST} --username ${DOCKERUSR} --password ${DOCKERPASS}
           echo "Push image"
-          docker push ${DOCKERUSR}/magnet2torrent:latest
+          docker push ${DOCKER_REGISTRY_HOST}/${DOCKERUSR}/magnet2torrent:latest
