@@ -1,58 +1,78 @@
-FROM debian:bookworm
+FROM debian AS cpp-builder
 
-RUN apt update && apt install -y git build-essential 
+ENV BOOST_BUILD_PATH="/boost_1_83_0/tools/build"
+ENV BOOST_ROOT="/boost_1_83_0"
 
-RUN apt install -y  libssl-dev zlib1g-dev libncurses5-dev libncursesw5-dev libreadline-dev libsqlite3-dev libgdbm-dev libdb5.3-dev libbz2-dev libexpat1-dev liblzma-dev libffi-dev
+RUN apt update
+RUN apt install build-essential libssl-dev wget git -y
 
-WORKDIR /tmp
+RUN echo "using gcc ;" > ~/user-config.jam 
+RUN wget https://nchc.dl.sourceforge.net/project/boost/boost/1.83.0/boost_1_83_0.tar.gz -O boost.tar.gz \
+    && tar -zxvf boost.tar.gz \
+    && cd ./boost_1_83_0 \
+    && ./bootstrap.sh --with-libraries=all --with-toolset=gcc \
+    && chmod +x b2 \
+    && echo "using gcc ;" > ~/user-config.jam \
+    && ./b2 install --prefix=/usr/local
 
-RUN git clone https://github.com/python/cpython.git && \    
-    cd cpython && \
-    git checkout 3.12 && \
-    git pull origin 3.12 && \
-    ./configure && \ 
-    make -j$(nproc) && \
-    make test -j$(nproc) && \
-    make install 
+RUN wget https://github.com/arvidn/libtorrent/releases/download/v2.0.9/libtorrent-rasterbar-2.0.9.tar.gz -O libtorrent.tar.gz \
+    && tar -zxvf libtorrent.tar.gz \
+    && cd libtorrent-rasterbar-2.0.9 \
+    && mkdir /lt \
+    && /boost_1_83_0/b2 install --prefix=/lt
 
-ENV C_INCLUDE_PATH=$C_INCLUDE_PATH:/usr/local/include/python3.12
+COPY ./libs /m2t-libs
 
-WORKDIR /tmp/build-libtorrent
+WORKDIR /m2t-libs
 
-RUN apt-get -y install libboost-tools-dev libboost-dev libboost-system-dev wget libssl-dev
+RUN make -j$(nproc) \
+    && ln -sf libMagnet2Torrent.so.1.0.0 libMagnet2Torrent.so \
+    && make -j$(nproc) m2t \
+    && chmod +x m2t
 
-RUN git clone --recurse-submodules https://github.com/arvidn/libtorrent.git
+RUN mkdir ./bin \
+    && cd ./bin \
+    && cp /lt/lib/libboost_system.so.1.83.0 \
+          /lt/lib/libtorrent-rasterbar.so.2.0.9 \
+          /m2t-libs/libMagnet2Torrent.so.1.0.0 \
+          /m2t-libs/m2t \
+          ./ \
+    && ln -sf libboost_system.so.1.83.0 libboost_system.so.1 \
+    && ln -sf libboost_system.so.1.83.0 libboost_system.so \
+    && ln -sf libMagnet2Torrent.so.1.0.0 libMagnet2Torrent.so.1 \
+    && ln -sf libMagnet2Torrent.so.1.0.0 libMagnet2Torrent.so \
+    && ln -sf libtorrent-rasterbar.so.2.0.9 libtorrent-rasterbar.so.2 \
+    && ln -sf libtorrent-rasterbar.so.2.0.9 libtorrent-rasterbar.so
 
-RUN cd libtorrent && mkdir install && b2 install --prefix=/tmp/build-libtorrent/libtorrent/install
+FROM golang:bookworm AS go-builder
 
-WORKDIR /tmp
+WORKDIR /progress
+WORKDIR /usr/local/go/src/
 
-RUN cp -r /tmp/build-libtorrent/libtorrent/install /tmp/libtorrent
+COPY --from=cpp-builder /m2t-libs/bin ./m2t-libs
 
-COPY libs/* /tmp/
+COPY server ./server
+COPY libs/*.h ./m2t-libs
 
-RUN make so &&  \
-    ln -s libGetTorrent.so.1.0.0 libGetTorrent.so.1 &&  \
-    ln -s libGetTorrent.so.1.0.0 libGetTorrent.so && \
-    mkdir GetTorrent && \
-    cp libGetTorrent.so.1.0.0 GetTorrent && \
-    cp libGetTorrent.so.1 GetTorrent && \
-    cp libGetTorrent.so GetTorrent
+RUN cd server \
+    && go build -o server main.go \
+    && chmod +x server \
+    && mv server /progress/server
 
-RUN make pyd
+FROM debian:12-slim
 
-RUN make test-torrent
+RUN apt update
+RUN apt install -y openssl
 
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/tmp/GetTorrent:/tmp/libtorrent/lib
+WORKDIR /progress
+COPY --from=cpp-builder /m2t-libs/bin ./m2t-libs
 
-WORKDIR /app
+WORKDIR /server
+COPY --from=go-builder /progress/server ./server
 
-RUN pip3 install flask gunicorn
+ENV LD_LIBRARY_PATH=/progress/m2t-libs
 
-RUN cp /tmp/PyGetTorrent.so /app/PyGetTorrent.so
+CMD ["/server/server"]
 
-COPY app/* /app/
 
-EXPOSE 8080
 
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "300", "app:app"]

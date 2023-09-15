@@ -1,25 +1,16 @@
 cc = gcc
 cxx = g++
-ldflags = -L./libtorrent/lib 
-cflags = -I./libtorrent/include -I/usr/local/include/python3.12
+ldflags = -L/lt/lib
+cflags = -I/lt/include
 libs = -ltorrent-rasterbar -lboost_system -lssl -lcrypto -ldl  -ltry_signal
-pylibs =  -lpython312 -ldl -lm
 
 
 so:
-	$(cxx) -fPIC -shared -std=c++17 $(cflags) -DTORRENT_LINKING_SHARED -c GetTorrent.cc -o GetTorrent.o
-	$(cxx) -shared $(ldflags) -pthread GetTorrent.o -Wl,-soname,libGetTorrent.so.1 -o libGetTorrent.so.1.0.0 $(libs)
+	$(cxx) -fPIC -std=c++17 $(cflags) -DTORRENT_LINKING_SHARED -c Magnet2Torrent.cc -o Magnet2Torrent.o
+	$(cxx) -shared $(ldflags) -pthread Magnet2Torrent.o -Wl,-soname,libMagnet2Torrent.so.1 -o libMagnet2Torrent.so.1.0.0 $(libs)
 
-pyd:
-	$(cc) -fPIC -shared $(cflags) -c pyBinding.c -o pyBinding.o
-	$(cc) -shared -L./ /usr/local/lib/libpython3.12.a pyBinding.o -o PyGetTorrent.so -lGetTorrent
-	
-
-test-torrent:
-	$(cxx) -c test-torrent.cc -o test-torrent.o
-	$(cxx) -L./ $(ldflags) test-torrent.o -o test-torrent -lGetTorrent $(libs)
-
-
-
+m2t:
+	$(cc) -c M2T_test.c -o M2T_test.o
+	$(cc) -L./ $(ldflags) M2T_test.o -o m2t -lMagnet2Torrent $(libs)
 
 

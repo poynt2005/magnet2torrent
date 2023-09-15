@@ -1,0 +1,19 @@
+cc = gcc
+cxx = g++
+ldflags = -L../libtorrent/lib
+cflags = -I../libtorrent/include
+libs = -ltorrent-rasterbar.dll -lboost_system -lws2_32
+
+dll:
+	$(cxx) -fPIC $(cflags) -D__WIN32 -c Magnet2Torrent.cc -o Magnet2Torrent.o
+	$(cxx) -shared $(ldflags) Magnet2Torrent.o -Wl,--out-implib,Magnet2Torrent.lib -o Magnet2Torrent.dll $(libs)
+
+m2t:
+	$(cc) -c M2T_test.c -o M2T_test.o
+	$(cc) -L./ M2T_test.o -o M2T_test.exe -lMagnet2Torrent
+
+t2m:
+	$(cc) -c T2M_test.c -o T2M_test.o
+	$(cc) -L./ T2M_test.o -o T2M_test.exe -lMagnet2Torrent
+
+

@@ -1,0 +1,6 @@
+docker run \
+    --rm \
+    -p <your_api_port>:6133 \
+    -p <your_dht_port>:6881 \
+    -d \
+    magnet2torrent
